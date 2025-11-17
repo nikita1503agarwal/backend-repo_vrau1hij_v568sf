@@ -12,15 +12,53 @@ Model name is converted to lowercase for the collection name:
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Literal, Any, Dict
 
-# Example schemas (replace with your own):
+# ---------------------------------------------
+# Task approval domain schemas (used by database viewer and API)
+# ---------------------------------------------
+
+FieldType = Literal["text", "number", "date", "select", "checkbox"]
+
+class FormField(BaseModel):
+    key: str = Field(..., description="Unique key for this field")
+    label: str = Field(..., description="Label shown to the user")
+    type: FieldType = Field("text", description="Input type")
+    required: bool = Field(False, description="Whether this field is required")
+    options: Optional[List[str]] = Field(None, description="Options for select type")
+
+class TemplateStep(BaseModel):
+    name: str = Field(..., description="Step name")
+    description: Optional[str] = Field(None, description="What happens in this step")
+    fields: List[FormField] = Field(default_factory=list, description="Form fields for this step")
+
+class TaskTemplate(BaseModel):
+    title: str = Field(..., description="Template title")
+    description: Optional[str] = Field(None, description="Template description")
+    steps: List[TemplateStep] = Field(..., description="Ordered steps")
+
+class StepInstance(BaseModel):
+    name: str
+    description: Optional[str] = None
+    fields: List[FormField] = Field(default_factory=list)
+    status: Literal["pending", "in_review", "approved", "rejected"] = "pending"
+    form_data: Dict[str, Any] = Field(default_factory=dict)
+    comment: Optional[str] = None
+    approved_by: Optional[str] = None
+
+class TaskInstance(BaseModel):
+    template_id: str
+    title: str
+    assignee: Optional[str] = None
+    steps: List[StepInstance]
+    current_step_index: int = 0
+    status: Literal["draft", "submitted", "in_progress", "approved", "rejected"] = "submitted"
+
+# ---------------------------------------------
+# Example generic schemas retained for reference
+# ---------------------------------------------
 
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
     name: str = Field(..., description="Full name")
     email: str = Field(..., description="Email address")
     address: str = Field(..., description="Address")
@@ -28,10 +66,6 @@ class User(BaseModel):
     is_active: bool = Field(True, description="Whether user is active")
 
 class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
     title: str = Field(..., description="Product title")
     description: Optional[str] = Field(None, description="Product description")
     price: float = Field(..., ge=0, description="Price in dollars")
